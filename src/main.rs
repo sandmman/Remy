@@ -10,8 +10,8 @@ fn main() {
     let mut file_buf = Vec::new();
 
     file.read_to_end(&mut file_buf).unwrap();           // read the file into a buffer
-    let file_buf = file_buf;
-                              // make it into an unmutable binding
-    println!("{}",file_name);
+    let file_buf = file_buf;                            // make it into an unmutable binding
+
+    println!("{:?}",file_buf);
 
 }
