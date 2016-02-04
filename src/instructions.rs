@@ -1,11 +1,3 @@
-let CARRY_FLAG = 0
-let ZERO_FLAG = 1
-let INTERRUPT_DISABLE = 2
-let DECIMAL_Mode = 3
-let BREAK_COMMAND = 4
-let OVERFLOW FLAG = 5
-let NEGATIVE_FLAG = 6
-
 fn LDA_ZeroPage(operand){
     """Load Accumulator With Memory"""
     SET_NEGATIVE(operand)
@@ -28,6 +20,10 @@ fn LDA_Immediate(){
     SET_NEGATIVE(operand)
     SET_ZERO(operand)
     emulator.cpu.accumulator = operand
+}
+fn ADC(A: i8, x i8){
+    //Adds A plus another number, plus the Carry flag, and stores the result in A
+    A = A + x;
 }
 fn BNE(){}
 fn JMP(){}
@@ -68,7 +64,7 @@ fn BCS(){}
 fn DEX(){}
 fn DEC_Absolute(){}
 fn JMP_Indirect(){}
-fn ADC_Absolute(){}
+
 fn ADC_Immediate(){}
 fn ROR_AbsoluteX(){}
 fn STA_ZeroPage(){}
