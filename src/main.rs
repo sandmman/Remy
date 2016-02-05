@@ -4,8 +4,10 @@ use std::io::Read;
 use std::path::Path;
 use std::default::Default;
 
+mod nes;
 mod cpu;
 mod ppu;
+mod memory;
 
 fn read_bin<P: AsRef<Path>>(path: P) -> Vec<u8> {
     let mut file = fs::File::open(path).unwrap();        // open file
@@ -13,6 +15,7 @@ fn read_bin<P: AsRef<Path>>(path: P) -> Vec<u8> {
     file.read_to_end(&mut file_buf).unwrap();          // read the file into a buffer
     file_buf
 }
+
 
 fn main() {
     let rom_file_name = env::args().nth(1).unwrap();
@@ -46,13 +49,10 @@ fn main() {
     println!("num_ram_banks {:?}",num_ram_banks);
     println!("reserved {:?}",reserved);
 
-    // Game Instructions begin at bytes 17 after 16-byte header
-    let instruction = rom[16].to_string() + &rom[17].to_string();
-    println!("instruction example {}",instruction);
-
-    // Create a new instance of the CPu
-    let mut cpu = cpu::Cpu::new();
-    println!("CPU {:#?}",&cpu);
+    // Create a new instance of the NES
+    let mut nes = nes::NES::default();
+    nes.power_on_reset();
+    nes.run(&rom);
     //cpu.read_instruction()
 
 
