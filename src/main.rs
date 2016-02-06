@@ -1,3 +1,8 @@
+extern crate byteorder;
+extern crate num;
+#[macro_use]
+extern crate enum_primitive;
+
 use std::env;
 use std::fs;
 use std::io::Read;
@@ -8,6 +13,10 @@ mod nes;
 mod cpu;
 mod ppu;
 mod memory;
+mod opcodes;
+mod instructions;
+
+
 
 fn read_bin<P: AsRef<Path>>(path: P) -> Vec<u8> {
     let mut file = fs::File::open(path).unwrap();        // open file
@@ -25,17 +34,17 @@ fn main() {
     let file_type = rom[0].to_string() + &rom[1].to_string() + &rom[2].to_string();
     // Should contain $1A
     let file_type2 = rom[3].to_string();
-    // Starting Byte 4: Length 1 - # of 16 KB PRG-ROM banks
+    // starting Byte 4: Length 1 - # of 16 KB PRG-ROM banks
     let prg = rom[4].to_string();
-    // Starting Byte 5: Length 1 - # of 8 KB CHR-ROM / VROM banks
+    // starting Byte 5: Length 1 - # of 8 KB CHR-ROM / VROM banks
     let chr = rom[5].to_string();
-    // Starting Byte 6: Length 1 - Rom control Byte 1
+    // starting Byte 6: Length 1 - Rom control Byte 1
     let rom_cntrl_byte_1 = rom[6].to_string();
-    // Starting Byte 7: Length 1 - Rom control Byte 1
+    // starting Byte 7: Length 1 - Rom control Byte 1
     let rom_cntrl_byte_2 = rom[7].to_string();
-    // Starting Byte 8: Length 1 - # of 8 KB RAM banks
+    // starting Byte 8: Length 1 - # of 8 KB RAM banks
     let num_ram_banks = rom[8].to_string();
-    // Starting Byte 9: Length 7 - Reserved
+    // starting Byte 9: Length 7 - Reserved
     let reserved = rom[9].to_string() + &rom[10].to_string() + &rom[11].to_string() + &rom[12].to_string() + &rom[13].to_string() + &rom[14].to_string() + &rom[15].to_string();
     // Registers
 

@@ -29,8 +29,8 @@ in the region $2008-$3FFF
 
 ## Registers (6)
 - Program Counter (PC): 16-bit register which holds the address of the next instruction to be executed
-- Stack Pointer (SP): 8-bit register which serves as an offset from $0100.
+- stack Pointer (SP): 8-bit register which serves as an offset from $0100.
 - Accumulator (A): 8-bit register which stores the results of arithmetic and logic operations
 - Index Register X (X): 8-bit register typically used as a counter or an offset for certain addressing modes
 - Index Register Y (Y): 8-bit register typically used as a counter or an offset for certain addressing modes. Y register cannot affect the stack pointer
-- Processor Status (P) -
+- Processor status (P) -

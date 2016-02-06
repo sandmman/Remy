@@ -1,6 +1,9 @@
+use instructions;
+use opcodes::Opcode;
+
 const RAM_SIZE: usize = 2048;
 const MEM: usize = 64 * 1024;
-const STACK_SIZE: usize = 256;
+const staCK_SIZE: usize = 256;
 const MAX_MEM_ADDR: u16 = 0xffff;
 /*
 Address	Size	Description
