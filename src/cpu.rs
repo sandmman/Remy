@@ -80,45 +80,69 @@ impl Cpu {
               // The only thing changing is where the memory is coming from, so
               // simple get the correct chunk and run the helper program
               adc_immediate     => {
-                                    let m = self.read_u8(self.reg_pc);
+                                    let m = self.immediate();
                                     self.ADC(m);
                                 },
               adc_zero_page     => {
-                                    let m = self.read_u8(self.reg_pc);
+                                    let m = self.zero_page();
                                     self.ADC(m);
                                 },
               adc_zero_page_x   => {
-                                    let m = self.read_u8(self.reg_pc);
+                                    let m = self.zero_pagex();
                                     self.ADC(m);
                                 },
               adc_absolute      => {
-                                    let m = self.read_u8(self.reg_pc);
+                                    let m = self.absolute();
                                     self.ADC(m);
                                 },
               adc_absolute_x    => {
-                                    let m = self.read_u8(self.reg_pc);
+                                    let m = self.absolute_x();
                                     self.ADC(m);
                                 },
               adc_absolute_y    => {
-                                    let m = self.read_u8(self.reg_pc);
+                                    let m = self.absolute_y();
                                     self.ADC(m);
                                 },
               adc_indirect_x    => {
-                                    let m = self.read_u8(self.reg_pc);
+                                    let m = self.indirect_x();
                                     self.ADC(m);
                                 },
               adc_indirect_y    => {
-                                    let m = self.read_u8(self.reg_pc);
+                                    let m = self.indirect_y();
                                     self.ADC(m);
                                 },
-              and_immediate     => {},
-              and_zero_page     => {},
-              and_zero_page_x   => {},
-              and_absolute      => {},
-              and_absolute_x    => {},
-              and_absolute_y    => {},
-              and_indirect_x    => {},
-              and_indirect_y    => {},
+              and_immediate     => {
+                                    let m = self.immediate();
+                                    self.AND(m);
+                                },
+              and_zero_page     => {
+                                    let m = self.zero_page();
+                                    self.AND(m);
+                                },
+              and_zero_page_x   => {
+                                    let m = self.zero_pagex();
+                                    self.AND(m);
+                                },
+              and_absolute      => {
+                                    let m = self.absolute();
+                                    self.AND(m);
+                                },
+              and_absolute_x    => {
+                                    let m = self.absolute_x();
+                                    self.AND(m);
+                                },
+              and_absolute_y    => {
+                                    let m = self.absolute_y();
+                                    self.AND(m);
+                                },
+              and_indirect_x    => {
+                                    let m = self.indirect_x();
+                                    self.AND(m);
+                                },
+              and_indirect_y    => {
+                                    let m = self.indirect_y();
+                                    self.AND(m);
+                                },
               asl_zero_page     => {},
               asl_zero_page_x   => {},
               asl_absolute      => {},
@@ -336,28 +360,101 @@ impl Cpu {
               }
         }
     }
+    fn immediate(&mut self) -> u8 {
+        let m = self.read_u8(self.reg_pc);
+        self.reg_pc += 1;
+        m
+    }
+    fn zero_page(&mut self) -> u8 {
+        let _addr = self.read_u8(self.reg_pc);  //Fetch the operand from the next byte
+        self.reg_pc += 1;                       //Increment the PC
+        self.read_u8(_addr as u16)             //Fetch the value of the address/operand
+    }
+    fn zero_pagex(&mut self) -> u8 {
+        let mut _addr = self.read_u8(self.reg_pc);  //Fetch the operand from the next byte
+        self.reg_pc += 1;                           //Increment the PC
+        _addr = (_addr + self.reg_x) & 0xFF;        //Add the X register to the address and wrap around if address +X > 0xF
+        self.read_u8(_addr as u16)
+    }
+    fn absolute(&mut self) -> u8 {
+        let _addr = self.read_u16(self.reg_pc); // Fetch the next addr pointing anywhere in memory
+        self.reg_pc += 2;
+        self.read_u8(_addr)
+    }
+    fn absolute_x(&mut self) -> u8 {
+        let mut _addr = self.read_u16(self.reg_pc); // Fetch the next addr pointing anywhere in memory
+        self.reg_pc += 2;
+        let a = (_addr & 0x100);
+        _addr += (self.reg_x as u16);
+        //if((_addr & 0x100) ^ a){
+        //    self.read_u8(_addr);
+        //}
+        self.read_u8(_addr)
+    }
+    fn absolute_y(&mut self) -> u8 {
+        let mut _addr = self.read_u16(self.reg_pc); // Fetch the next addr pointing anywhere in memory
+        self.reg_pc += 2;
+        let a = (_addr & 0x100);
+        _addr += (self.reg_y as u16);
+        //if((_addr & 0x100) ^ a){
+        //    self.read_u8(_addr);
+        //}
+        self.read_u8(_addr)
+    }
+    fn indirect_x(&mut self) -> u8 {
+        let mut addr = self.read_u8(self.reg_pc);  // Fetch the pointer address from the next byte in the PC
+        self.reg_pc += 1;
+        let tmp = (addr + self.reg_x) & 0xFF;
+        let _addr = self.read_u16(tmp as u16);
+        self.read_u8(_addr)
+    }
+    fn indirect_y(&mut self) -> u8 {
+        let mut _addr = self.read_u8(self.reg_pc); //u8
+        let mut _addr = _addr as u16;
+        self.reg_pc += 1;
+        let mut addr = self.read_u16(_addr); //u16
+        _addr = addr & 0x100;
+        addr += (self.reg_y as u16);
+        if((addr & 0x100) != _addr){
+            self.read_u8(addr);
+        }
+        self.read_u8(addr)
+    }
     // Basic functions
     fn ADC(&mut self, m: u8){ // Add Memory to Accumulator with Carry: A + M + C -> A, C
         let ret = self.reg_a + m + self.reg_fr[CARRY_FLAG];
 
-        // Test for overflow and Set Flags
         self.reg_fr[OVERFLOW] = (ret ^ self.reg_a) & (ret ^ m) & 0x80;
-        self.reg_fr[CARRY_FLAG] = (ret & 0x100); //>> 8;
+        self.reg_fr[CARRY_FLAG  ] = (ret & 0x100); //>> 8;
         self.reg_fr[ZERO_FLAG]  = ret & 0xFF;
-        self.reg_fr[SIGN]  = ret & 0xFF;
-        self.reg_fr[self.reg_a as usize] = ret & 0xFF;
-        self.reg_fr[ZERO_FLAG] = !self.reg_fr[ZERO_FLAG];
+        self.reg_fr[SIGN]       = ret & 0xFF;
+        self.reg_a              = ret & 0xFF;
+        self.reg_fr[ZERO_FLAG]  = !self.reg_fr[ZERO_FLAG];
+    }
+    fn AND(&mut self, m: u8){
+        self.reg_a = self.reg_a & m;
+        if((self.reg_a & 0x80) == 0x80){
+            self.set_sign();
+        }
+        else {
+            self.clear_sign();
+        }
+        if(self.reg_a = 0x00){
+            self.set_zero();
+        }
+        else {
+            self.clear_zero();
+        }
     }
     fn SBC(&mut self, m: u8){
         let ret = self.reg_a - m - !self.reg_fr[CARRY_FLAG];
 
-        // Test for overflow and Set Flags
-        self.reg_fr[OVERFLOW] = (ret ^ self.reg_a) & (ret ^ m) & 0x80;
+        self.reg_fr[OVERFLOW]   = (ret ^ self.reg_a) & (ret ^ m) & 0x80;
         self.reg_fr[CARRY_FLAG] = !(ret & 0x100); //>> 8;
-        self.reg_fr[ZERO_FLAG]              = ret & 0xFF;
-        self.reg_fr[SIGN]                   = ret & 0xFF;
-        self.reg_fr[self.reg_a as usize]    = ret & 0xFF;
-        self.reg_fr[ZERO_FLAG] = !self.reg_fr[ZERO_FLAG];
+        self.reg_fr[ZERO_FLAG]  = ret & 0xFF;
+        self.reg_fr[SIGN]       = ret & 0xFF;
+        self.reg_a              = ret & 0xFF;
+        self.reg_fr[ZERO_FLAG]  = !self.reg_fr[ZERO_FLAG];
     }
     fn set_sign(&mut self){self.reg_fr[SIGN] = 1;}
     fn clear_sign(&mut self){self.reg_fr[SIGN] = 0;}
