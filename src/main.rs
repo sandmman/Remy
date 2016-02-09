@@ -16,16 +16,6 @@ mod memory;
 mod opcodes;
 mod instructions;
 
-
-
-fn read_bin<P: AsRef<Path>>(path: P) -> Vec<u8> {
-    let mut file = fs::File::open(path).unwrap();        // open file
-    let mut file_buf = Vec::new();
-    file.read_to_end(&mut file_buf).unwrap();          // read the file into a buffer
-    file_buf
-}
-
-
 fn main() {
     let rom_file_name = env::args().nth(1).unwrap();
     let rom = read_bin(rom_file_name);                  // make it into an unmutable binding
@@ -49,20 +39,25 @@ fn main() {
     // Registers
 
 
-    println!("File Type {:?}",file_type);
-    println!("File Type2 {:?}",file_type2);
-    println!("prg {:?}",prg);
-    println!("chr {:?}",chr);
+    println!("File Type {:?} {:?}",file_type,file_type2);
+    println!("# of 16 KB PRG-ROM banks {:?}",prg);
+    println!("# of 8 KB CHR-ROM / VROM banks {:?}",chr);
     println!("rom_cntrl_byte_1 {:?}",rom_cntrl_byte_1);
     println!("rom_cntrl_byte_2  {:?}",rom_cntrl_byte_2);
-    println!("num_ram_banks {:?}",num_ram_banks);
+    println!("# of 8 KB RAM banks {:?}",num_ram_banks);
     println!("reserved {:?}",reserved);
 
     // Create a new instance of the NES
-    let mut nes = nes::NES::default();
+    let mut nes = nes::NES::new(rom);
     nes.power_on_reset();
-    nes.run(&rom);
-    //cpu.read_instruction()
 
-
+    loop{
+        nes.run();
+    }
+}
+fn read_bin<P: AsRef<Path>>(path: P) -> Vec<u8> {
+    let mut file = fs::File::open(path).unwrap();        // open file
+    let mut file_buf = Vec::new();
+    file.read_to_end(&mut file_buf).unwrap();          // read the file into a buffer
+    file_buf
 }

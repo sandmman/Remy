@@ -9,6 +9,7 @@ const DECIMAL: usize    = 3;
 const INTERRUPT: usize  = 2;
 const ZERO_FLAG: usize  = 1;
 const CARRY_FLAG: usize = 0;
+
 fn check_overflow(M: u8, N: u8) -> bool{
     let result = M + N;
     if(((M^result)&(N^result)&0x80) == 0x00){
@@ -16,10 +17,10 @@ fn check_overflow(M: u8, N: u8) -> bool{
     }
     return true
 }
-#[derive(Default)]
+
 pub struct Cpu {
-    reg_pc: u16, // 16 bit program counter
-    reg_sp: u8,  // 8 bit stack pointer
+    reg_pc: u16, // 16 bit program counter The low and high 8-bit halves of the register are called PCL and PCH
+    reg_sp: u8,  // 8 bit stack pointer // located at $0100-$01FF
     //reg_p:  u8,  // 6 bits used by alu
     reg_fr: Vec<u8>,  // 8 bit flag register
     // Work Registers
@@ -29,42 +30,87 @@ pub struct Cpu {
     memory: memory::Memory
 }
 impl Cpu {
+    pub fn new(mem: memory::Memory) -> Cpu {
+        Cpu {
+            reg_pc: 16,
+            reg_sp: 0xFD,
+            reg_fr: vec![0,0,1,1,0,1,0,0],
+            reg_a: 0,
+            reg_x: 0,
+            reg_y: 0,
+            memory: mem,
+        }
+    }
     pub fn power_on_reset(&mut self) {
         self.reg_pc = 16;
         self.reg_sp = 0xFD;
         self.reg_fr = vec![0,0,1,1,0,1,0,0];
     }
-    fn read_word(&mut self) -> u8 {
-        self.memory.read_word(self.reg_pc)
+    fn read_u8(&self, pc: u16) -> u8 {
+        self.memory.read_u8(pc)
     }
-    fn write_word(&mut self, addr: u16, obj: u8) {
-        self.memory.write_word(addr, obj);
+    fn read_u16(&self, pc: u16) -> u16 {
+        self.memory.read_u16(pc)
     }
-    fn read_instruction(&mut self) -> Instruction {
-        Instruction{opcode: self.read_word()}
+    fn read_rom_u8(&self, pc: u16) -> u8 {
+        self.memory.read_rom_u8(pc)
+    }
+    fn read_rom_u16(&self, pc: u16) -> u16 {
+        self.memory.read_rom_u16(pc)
+    }
+    fn write_u8(&mut self, addr: u16, obj: u8) {
+        self.memory.write_u8(addr, obj);
+    }
+    fn write_u16(&mut self, addr: u16, obj: u16){
+        self.memory.write_u16(addr,obj);
     }
     fn run_instruction(&mut self){
         let instru = self.read_instruction();
+        self.reg_pc += 1; // Increment PC
         // Adjust information
         println!("Instruction: {:#x}",instru.opcode);
+        println!("Program Counter: {:#x}",self.reg_pc);
         self.execute_instruction(instru);
+    }
+    fn read_instruction(&mut self) -> Instruction {
+        Instruction{opcode: self.read_rom_u8(self.reg_pc)}
     }
     fn execute_instruction(&mut self, instr: Instruction){
         match instr.opcode() {
-              adc_immediate     => { // Add Memory to Accumulator with Carry: A + M + C -> A, C
-                                    self.reg_pc += 1;
-                                    let m = self.read_word();
-                                    if(check_overflow(m,self.reg_a)){
-                                        self.set_overflow();
-                                    }
-              },
-              adc_zero_page     => {},
-              adc_zero_page_x   => {},
-              adc_absolute      => {},
-              adc_absolute_x    => {},
-              adc_absolute_y    => {},
-              adc_indirect_x    => {},
-              adc_indirect_y    => {},
+              // The only thing changing is where the memory is coming from, so
+              // simple get the correct chunk and run the helper program
+              adc_immediate     => {
+                                    let m = self.read_u8(self.reg_pc);
+                                    self.ADC(m);
+                                },
+              adc_zero_page     => {
+                                    let m = self.read_u8(self.reg_pc);
+                                    self.ADC(m);
+                                },
+              adc_zero_page_x   => {
+                                    let m = self.read_u8(self.reg_pc);
+                                    self.ADC(m);
+                                },
+              adc_absolute      => {
+                                    let m = self.read_u8(self.reg_pc);
+                                    self.ADC(m);
+                                },
+              adc_absolute_x    => {
+                                    let m = self.read_u8(self.reg_pc);
+                                    self.ADC(m);
+                                },
+              adc_absolute_y    => {
+                                    let m = self.read_u8(self.reg_pc);
+                                    self.ADC(m);
+                                },
+              adc_indirect_x    => {
+                                    let m = self.read_u8(self.reg_pc);
+                                    self.ADC(m);
+                                },
+              adc_indirect_y    => {
+                                    let m = self.read_u8(self.reg_pc);
+                                    self.ADC(m);
+                                },
               and_immediate     => {},
               and_zero_page     => {},
               and_zero_page_x   => {},
@@ -82,14 +128,16 @@ impl Cpu {
               beq               => {},
               bit_zero_page     => {},
               bit_absolute      => {},
-              bmi               => {},
+              bmi               => {
+                                self.reg_pc += 2
+                                },
               bne               => {},
               bpl               => {},
               brk               => {
                                     // incremenet PC Register by 2: 7 clock cycles
                                     // INTERRUPT bit = 1
                                     println!("Break!");
-                                    self.reg_pc += 2
+                                    self.reg_pc += 1
                                 },
               bvc               => {},
               bvs               => {},
@@ -141,8 +189,23 @@ impl Cpu {
 
               jmp_absolute      => {},
               jmp_indirect      => {},
-              jsr_absolute      => {},
+              jsr_absolute      => {// push (PC+2),(PC+1) -> PCL,(PC+2) -> PCH
+                                    // TODO: Reconsider stack setup. Specialized functions or actual stack might be cool
+                                    let pc = self.reg_pc + 2;
+                                    let sp = self.reg_sp as u16;
 
+                                    self.write_u16(sp, pc); // Push PC + 2 onto stack
+                                    let jsr_addr = self.read_u16(self.reg_pc+1);
+                                    println!("{}",jsr_addr);
+                                    self.reg_pc = jsr_addr;
+                                    //1    PC     R  fetch opcode, increment PC
+                                    //2    PC     R  fetch low address byte, increment PC
+                                    //3  $0100,S  R  internal operation (predecrement S?)
+                                    //4  $0100,S  W  push PCH on stack, decrement S
+                                    //5  $0100,S  W  push PCL on stack, decrement S
+                                    //6    PC     R  copy low address byte to PCL, fetch high address byte to PCH
+;
+                                    },
               lda_immediate     => {},
               lda_zero_page     => {},
               lda_zero_page_x   => {},
@@ -171,14 +234,47 @@ impl Cpu {
               lsr_absolute_x    => {},
 
               nop_implied       => { /* No operation 2 cycles */},
-              ora_immediate     => {},
-              ora_zero_page     => {},
-              ora_zero_page_x   => {},
-              ora_absolute      => {},
-              ora_absolute_x    => {},
-              ora_absolute_y    => {},
-              ora_indirect_x    => {println!("ora!");},
-              ora_indirect_y    => {},
+              // A OR M --> A
+              ora_immediate     => {
+                                    println!("ora!");
+                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
+                                    self.reg_pc += 1;
+                                },
+              ora_zero_page     => {
+                                    println!("ora!");
+                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
+                                    self.reg_pc += 1;
+                                },
+              ora_zero_page_x   => {
+                                    println!("ora!");
+                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
+                                    self.reg_pc += 1;
+                                },
+              ora_absolute      => {
+                                    println!("ora!");
+                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
+                                    self.reg_pc += 1;
+                                },
+              ora_absolute_x    => {
+                                    println!("ora!");
+                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
+                                    self.reg_pc += 1;
+                                },
+              ora_absolute_y    => {
+                                    println!("ora!");
+                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
+                                    self.reg_pc += 1;
+                                },
+              ora_indirect_x    => {
+                                    println!("ora!");
+                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
+                                    self.reg_pc += 1;
+                                },
+              ora_indirect_y    => {
+                                    println!("ora!");
+                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
+                                    self.reg_pc += 1;
+                                },
               pha               => {},
               php               => {},
               pla               => {},
@@ -199,7 +295,10 @@ impl Cpu {
               rts               => { // Return from subroutine: Operation:  PC from S, PC + 1 -> PC
 
                                 },
-              sbc_immediate     => {},
+              sbc_immediate     => {
+                                    let m = self.read_u8(self.reg_pc);
+                                    self.SBC(m);
+                                },
               sbc_zero_page     => {},
               sbc_zero_page_x   => {},
               sbc_absolute      => {},
@@ -237,6 +336,29 @@ impl Cpu {
               }
         }
     }
+    // Basic functions
+    fn ADC(&mut self, m: u8){ // Add Memory to Accumulator with Carry: A + M + C -> A, C
+        let ret = self.reg_a + m + self.reg_fr[CARRY_FLAG];
+
+        // Test for overflow and Set Flags
+        self.reg_fr[OVERFLOW] = (ret ^ self.reg_a) & (ret ^ m) & 0x80;
+        self.reg_fr[CARRY_FLAG] = (ret & 0x100); //>> 8;
+        self.reg_fr[ZERO_FLAG]  = ret & 0xFF;
+        self.reg_fr[SIGN]  = ret & 0xFF;
+        self.reg_fr[self.reg_a as usize] = ret & 0xFF;
+        self.reg_fr[ZERO_FLAG] = !self.reg_fr[ZERO_FLAG];
+    }
+    fn SBC(&mut self, m: u8){
+        let ret = self.reg_a - m - !self.reg_fr[CARRY_FLAG];
+
+        // Test for overflow and Set Flags
+        self.reg_fr[OVERFLOW] = (ret ^ self.reg_a) & (ret ^ m) & 0x80;
+        self.reg_fr[CARRY_FLAG] = !(ret & 0x100); //>> 8;
+        self.reg_fr[ZERO_FLAG]              = ret & 0xFF;
+        self.reg_fr[SIGN]                   = ret & 0xFF;
+        self.reg_fr[self.reg_a as usize]    = ret & 0xFF;
+        self.reg_fr[ZERO_FLAG] = !self.reg_fr[ZERO_FLAG];
+    }
     fn set_sign(&mut self){self.reg_fr[SIGN] = 1;}
     fn clear_sign(&mut self){self.reg_fr[SIGN] = 0;}
     fn set_overflow(&mut self){self.reg_fr[OVERFLOW] = 1;}
@@ -253,12 +375,12 @@ impl Cpu {
     fn clear_carry(&mut self){self.reg_fr[CARRY_FLAG] = 0;}
 
 
-    pub fn run(&mut self,rom: &Vec<u8>) {
+    pub fn run(&mut self) {
+        let mut x = 0;
         loop {
+            if x == 10{ panic!("instructions Complete!");}
             self.run_instruction();
-            panic!("instruction Complete!");
-
-
+            x += 1;
             }
         }
     }

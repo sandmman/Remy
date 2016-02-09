@@ -1,5 +1,6 @@
 use instructions;
 use opcodes::Opcode;
+use byteorder::LittleEndian;
 
 const RAM_SIZE: usize = 2048;
 const MEM: usize = 64 * 1024;
@@ -24,26 +25,61 @@ pub struct Memory {
                                   // 0x200-0x800 is General Ram
                                   // 0x801 to 0x2000 mirrors 0x00 -> 0x7ff
     pub mem: Box<[u8; MEM]>,
+    pub rom: Vec<u8>,
 }
 impl Memory {
-    pub fn read_word(&mut self, addr: u16) -> u8{
+    pub fn new(rom_buf: Vec<u8>) -> Memory{
+        Memory {
+            ram: Box::new([0; RAM_SIZE]),
+            mem: Box::new([0; MEM]),
+            rom: rom_buf
+        }
+    }
+    pub fn read_u8(&self, addr: u16) -> u8{
         if addr > MAX_MEM_ADDR{
-            println!("{}, {}",MAX_MEM_ADDR, addr);
             panic!("Address out of bounds: {:#x}", addr)
         }
         else{
             self.mem[(addr as usize)]
         }
     }
-    pub fn write_word(&mut self, addr: u16, obj: u8){
+    pub fn read_u16(&self, addr: u16) -> u16 {
+        if addr+2 > MAX_MEM_ADDR{
+            panic!("Address out of bounds: {:#x}", addr)
+        }
+        else{
+            let most_sig = self.mem[((addr+1) as usize)];
+            let least_sig = self.mem[(addr as usize)];
+            ((most_sig as u16) <<8) + (least_sig as u16)
+        }
+
+    }
+    pub fn read_rom_u8(&self, addr: u16) -> u8{
+        if addr > MAX_MEM_ADDR{
+            panic!("Address out of bounds: {:#x}", addr)
+        }
+        else{
+            self.rom[(addr as usize)]
+        }
+    }
+    pub fn read_rom_u16(&self, addr: u16) -> u16{
+        if addr+2 > MAX_MEM_ADDR{
+            panic!("Address out of bounds: {:#x}", addr)
+        }
+        else{
+            let most_sig = self.mem[((addr+1) as usize)];
+            let least_sig = self.mem[(addr as usize)];
+            ((most_sig as u16) <<8) + (least_sig as u16)
+        }
+    }
+    pub fn write_u8(&mut self, addr: u16, obj: u8){
         self.mem[(addr as usize)] = obj;
     }
-}
-impl Default for Memory {
-    fn default() -> Memory {
-        Memory {
-            ram: Box::new([0; RAM_SIZE]),
-            mem: Box::new([0; MEM])
-        }
+    pub fn write_u16(&mut self, addr: u16, obj: u16) {
+        let most_sig:  u8 = (addr >> 8) as u8;
+        let least_sig: u8 = obj as u8;
+        self.mem[(addr as usize)] = least_sig;
+        self.mem[((addr+1) as usize)] = most_sig;
+
     }
 }
