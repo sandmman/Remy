@@ -7,26 +7,17 @@ const OVERFLOW: usize   = 6;
 const BREAK: usize      = 4;
 const DECIMAL: usize    = 3;
 const INTERRUPT: usize  = 2;
-const ZERO: usize  = 1;
-const CARRY: usize = 0;
-
-fn check_overflow(M: u8, N: u8) -> bool{
-    let result = M + N;
-    if(((M^result)&(N^result)&0x80) == 0x00){
-        return false;
-    }
-    return true
-}
+const ZERO: usize       = 1;
+const CARRY: usize      = 0;
 
 pub struct Cpu {
-    reg_pc: u16, // 16 bit program counter The low and high 8-bit halves of the register are called PCL and PCH
-    reg_sp: u8,  // 8 bit stack pointer // located at $0100-$01FF
-    //reg_p:  u8,  // 6 bits used by alu
-    reg_fr: Vec<u8>,  // 8 bit flag register
+    reg_pc: u16,        // 16 bit program counter The low and high 8-bit halves of the register are called PCL and PCH
+    reg_sp: u8,         // 8 bit stack pointer // located at $0100-$01FF
+    reg_flag: Vec<u8>,    // 8 bit flag register
     // Work Registers
-    reg_a: u8,   // Accumulator
-    reg_x: u8,   // Indexed addressing
-    reg_y: u8,    // Limited indexed addressing
+    reg_a: u8,          // Accumulator
+    reg_x: u8,          // Indexed addressing
+    reg_y: u8,          // Limited indexed addressing
     memory: memory::Memory
 }
 impl Cpu {
@@ -34,7 +25,7 @@ impl Cpu {
         Cpu {
             reg_pc: 16,
             reg_sp: 0xFD,
-            reg_fr: vec![0,0,1,1,0,1,0,0],
+            reg_flag: vec![0,0,1,1,0,1,0,0],
             reg_a: 0,
             reg_x: 0,
             reg_y: 0,
@@ -44,7 +35,7 @@ impl Cpu {
     pub fn power_on_reset(&mut self) {
         self.reg_pc = 16;
         self.reg_sp = 0xFD;
-        self.reg_fr = vec![0,0,1,1,0,1,0,0];
+        self.reg_flag = vec![0,0,1,1,0,1,0,0];
     }
     fn read_u8(&self, pc: u16) -> u8 {
         self.memory.read_u8(pc)
@@ -52,12 +43,12 @@ impl Cpu {
     fn read_u16(&self, pc: u16) -> u16 {
         self.memory.read_u16(pc)
     }
-    fn read_rom_u8(&self, pc: u16) -> u8 {
+    /*fn read_rom_u8(&self, pc: u16) -> u8 {
         self.memory.read_rom_u8(pc)
     }
     fn read_rom_u16(&self, pc: u16) -> u16 {
         self.memory.read_rom_u16(pc)
-    }
+    }*/
     fn write_u8(&mut self, addr: u16, obj: u8) {
         self.memory.write_u8(addr, obj);
     }
@@ -66,730 +57,882 @@ impl Cpu {
     }
     fn run_instruction(&mut self){
         let instru = self.read_instruction();
-        self.reg_pc += 1; // Increment PC
+        self.incr_pc(1);
         // Adjust information
         println!("Instruction: {:#x}",instru.opcode);
         println!("Program Counter: {:#x}",self.reg_pc);
         self.execute_instruction(instru);
     }
     fn read_instruction(&mut self) -> Instruction {
-        Instruction{opcode: self.read_rom_u8(self.reg_pc)}
+        Instruction{opcode: self.read_u8(self.reg_pc)}
     }
     fn execute_instruction(&mut self, instr: Instruction){
         match instr.opcode() {
               // The only thing changing is where the memory is coming from, so
               // simple get the correct chunk and run the helper program
-              adc_immediate     => {
+              AdcImmediate      => {
                                     let m = self.immediate();
-                                    self.ADC(m);
+                                    self.adc(m);
                                 },
-              adc_zero_page     => {
+              AdcZeroPage       => {
                                     let m = self.zero_page();
-                                    self.ADC(m);
+                                    self.adc(m);
                                 },
-              adc_zero_page_x   => {
+              AdcZeroPageX      => {
                                     let m = self.zero_page_x();
-                                    self.ADC(m);
+                                    self.adc(m);
                                 },
-              adc_absolute      => {
+              AdcAbsolute       => {
                                     let m = self.absolute();
-                                    self.ADC(m);
+                                    self.adc(m);
                                 },
-              adc_absolute_x    => {
+              AdcAbsoluteX      => {
                                     let m = self.absolute_x();
-                                    self.ADC(m);
+                                    self.adc(m);
                                 },
-              adc_absolute_y    => {
+              AdcAbsoluteY      => {
                                     let m = self.absolute_y();
-                                    self.ADC(m);
+                                    self.adc(m);
                                 },
-              adc_indirect_x    => {
+              AdcIndirectX      => {
                                     let m = self.indirect_x();
-                                    self.ADC(m);
+                                    self.adc(m);
                                 },
-              adc_indirect_y    => {
+              AdcIndirectY      => {
                                     let m = self.indirect_y();
-                                    self.ADC(m);
+                                    self.adc(m);
                                 },
-              and_immediate     => {
+              AndImmediate      => {
                                     let m = self.immediate();
-                                    self.AND(m);
+                                    self.and(m);
                                 },
-              and_zero_page     => {
+              AndZeroPage       => {
                                     let m = self.zero_page();
-                                    self.AND(m);
+                                    self.and(m);
                                 },
-              and_zero_page_x   => {
+              AndZeroPageX      => {
                                     let m = self.zero_page_x();
-                                    self.AND(m);
+                                    self.and(m);
                                 },
-              and_absolute      => {
+              AndAbsolute       => {
                                     let m = self.absolute();
-                                    self.AND(m);
+                                    self.and(m);
                                 },
-              and_absolute_x    => {
+              AndAbsoluteX      => {
                                     let m = self.absolute_x();
-                                    self.AND(m);
+                                    self.and(m);
                                 },
-              and_absolute_y    => {
+              AndAbsoluteY      => {
                                     let m = self.absolute_y();
-                                    self.AND(m);
+                                    self.and(m);
                                 },
-              and_indirect_x    => {
+              AndIndirectX      => {
                                     let m = self.indirect_x();
-                                    self.AND(m);
+                                    self.and(m);
                                 },
-              and_indirect_y    => {
+              AndIndirectY      => {
                                     let m = self.indirect_y();
-                                    self.AND(m);
+                                    self.and(m);
                                 },
-              asl_accumulator   => {
-                                    let B = self.reg_a;
-                                    self.ASL(B);
+              AslAccumulator    => {
+                                    let b = self.reg_a;
+                                    self.asl(b);
                                 },
-              asl_zero_page     => {
-                                    let B = self.zero_page();
-                                    self.ASL(B);
+              AslZeroPage       => {
+                                    let b = self.zero_page();
+                                    self.asl(b);
                                 },
-              asl_zero_page_x   => {
-                                    let B = self.zero_page_x();
-                                    self.ASL(B);
+              AslZeroPageX      => {
+                                    let b = self.zero_page_x();
+                                    self.asl(b);
                                 },
-              asl_absolute      => {
-                                    let B = self.absolute();
-                                    self.ASL(B);
+              AslAbsolute       => {
+                                    let b = self.absolute();
+                                    self.asl(b);
                                 },
-              asl_absolute_x    => {
-                                    let B = self.absolute_x();
-                                    self.ASL(B);
+              AslAbsoluteX      => {
+                                    let b = self.absolute_x();
+                                    self.asl(b);
                                 },
-              bcc               => {
+              Bcc               => {
                                     let m = self.read_u8(self.reg_pc);
-                                    if(self.reg_fr[CARRY] == 0){
-                                        self.reg_pc += (m as u16);
+                                    if self.reg_flag[CARRY] == 0 {
+                                        self.incr_pc(m);
                                     } else {
                                         self.reg_pc += 1;
                                     }
                                 },
-              bcs               => {
+              Bcs               => {
                                     let m = self.read_u8(self.reg_pc);
-                                    if(self.reg_fr[CARRY] == 1){
-                                      self.reg_pc += (m as u16);
+                                    if self.reg_flag[CARRY] == 1 {
+                                      self.incr_pc(m);
                                     } else {
-                                      self.reg_pc += 1;
+                                      self.incr_pc(1);
                                   }
                                 },
-              beq               => {
+              Beq               => {
                                     let m = self.read_u8(self.reg_pc);
-                                    if(self.reg_fr[ZERO] == 1){
-                                      self.reg_pc += (m as u16);
+                                    if self.reg_flag[ZERO] == 1 {
+                                      self.incr_pc(m);
                                     } else {
-                                      self.reg_pc += 1;
+                                      self.incr_pc(1);
                                   }
                                 },
-              bit_zero_page     => {
+              BitZeroPage       => {
                                     let m = self.zero_page();
                                     let t = self.reg_a & m;
-                                    self.reg_fr[SIGN]     = if((t & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[OVERFLOW] = if((t & 0x40) == 0x40){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]     = if(t == 0x00)        { 1 } else { 0 };
+                                    self.reg_flag[SIGN]     = if (t & 0x80) == 0x80 { 1 } else { 0 };
+                                    self.reg_flag[OVERFLOW] = if (t & 0x40) == 0x40 { 1 } else { 0 };
+                                    self.reg_flag[ZERO]     = if  t == 0x00         { 1 } else { 0 };
                                 },
-              bit_absolute      => {
+              BitAbsolute       => {
                                     let m = self.absolute();
                                     let t = self.reg_a & m;
-                                    self.reg_fr[SIGN]     = if((t & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[OVERFLOW] = if((t & 0x40) == 0x40){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]     = if(t == 0x00)        { 1 } else { 0 };
+                                    self.reg_flag[SIGN]     = if (t & 0x80) == 0x80 { 1 } else { 0 };
+                                    self.reg_flag[OVERFLOW] = if (t & 0x40) == 0x40 { 1 } else { 0 };
+                                    self.reg_flag[ZERO]     = if  t == 0x00         { 1 } else { 0 };
                                 },
-              bmi               => {
+              Bmi               => {
                                     let m = self.read_u8(self.reg_pc);
-                                    if(self.reg_fr[SIGN] == 1){
-                                        self.reg_pc += (m as u16);
+                                    if self.reg_flag[SIGN] == 1 {
+                                        self.incr_pc(m);
                                     } else {
-                                        self.reg_pc += 1;
+                                        self.incr_pc(1);
                                     }
                                 },
-              bne               => {
+              Bne               => {
                                     let m = self.read_u8(self.reg_pc);
-                                    if(self.reg_fr[ZERO] == 0){
-                                        self.reg_pc += (m as u16);
+                                    if self.reg_flag[ZERO] == 0 {
+                                        self.incr_pc(m);
                                     } else {
-                                        self.reg_pc += 1;
+                                        self.incr_pc(1);
                                     }
                                 },
-              bpl               => {
+              Bpl               => {
                                     let m = self.read_u8(self.reg_pc);
-                                    if(self.reg_fr[SIGN] == 0){
-                                        self.reg_pc += (m as u16);
+                                    if self.reg_flag[SIGN] == 0 {
+                                        self.incr_pc(m);
                                     } else {
-                                        self.reg_pc += 1;
+                                        self.incr_pc(1);
                                     }
                                 },
-              brk               => {
-                                    println!("Break!");
-                                    self.reg_pc += 1;   //Byte after the break command will not be evaluated
-                                    //self.             //Push(write) the PC high to the top of stack
+              Brk               => {
+                                    self.incr_pc(1);                  //Byte after the break command will not be evaluated
+                                    let pc = self.reg_pc;
+                                    let hi = (self.reg_pc >> 8) as u8;
+                                    let lo = self.reg_pc as u8;
+                                    let p = ((self.reg_flag[SIGN] as u8) << 7) + ((self.reg_flag[OVERFLOW] as u8) << 6) + ((self.reg_flag[BREAK] as u8) << 4) + ((self.reg_flag[DECIMAL] as u8) << 3) + ((self.reg_flag[INTERRUPT] as u8) << 2) + ((self.reg_flag[ZERO] as u8) << 1) +(self.reg_flag[CARRY] as u8);
+
+                                    self.write_u8(pc,hi);           //Push(write) the PC high to the top of stack
                                     self.reg_sp -= 1;
-                                                        //Push(write) the PC low to the top of stack
+                                    self.write_u8(pc,lo);           //Push(write) the PC low to the top of stack
                                     self.reg_sp -= 1;
-                                                        //Push(write) something else on stack
+                                    self.write_u8(pc,p|0x10);       //Push(write) something else on stack
                                     self.reg_sp -= 1;
-                                    self.reg_pc = self.read_u16(0xFFFE);
+
+                                    let l = self.read_u8(0xFFFE) as u16;
+                                    let h = (self.read_u8(0xFFFF) as u16) << 8;
+                                    self.reg_pc = h | l
                                 },
-              bvc               => {
+              Bvc               => {
                                     let m = self.read_u8(self.reg_pc);
-                                    if(self.reg_fr[OVERFLOW] == 0){
-                                        self.reg_pc += (m as u16);
+                                    if self.reg_flag[OVERFLOW] == 0 {
+                                        self.incr_pc(m);
                                     } else {
-                                        self.reg_pc += 1;
+                                        self.incr_pc(1);
                                     }
                                 },
-              bvs               => {
+              Bvs               => {
                                     let m = self.read_u8(self.reg_pc);
-                                    if(self.reg_fr[OVERFLOW] == 1){
-                                        self.reg_pc += (m as u16);
+                                    if self.reg_flag[OVERFLOW] == 1 {
+                                        self.incr_pc(m);
                                     } else {
-                                        self.reg_pc += 1;
+                                        self.incr_pc(1);
                                     }
                                 },
-              // Clear / Set Instructions
-              clc               => {self.clear_carry();}, // Clear Carry Flags
-              cld               => {self.clear_decimal();}, // Clear Decimal Mode
-              cli               => {self.clear_interrupt();}, // Clear Interrupt Disable Bit
-              clv               => {self.clear_overflow();}, // Clear Overflow Flag
-              sec               => {self.set_carry();}, // Set Carry Flag
-              sed               => {self.set_decimal();}, // Set Decimal Mode
-              sei               => {self.set_interrupt();}, // Set Interrupt Disable Bit
-              cmp_immediate     => {
+              Clc               => {self.clear_carry();},       // Clear Carry Flags
+              Cld               => {self.clear_decimal();},     // Clear Decimal Mode
+              Cli               => {self.clear_interrupt();},   // Clear Interrupt Disable Bit
+              Clv               => {self.clear_overflow();},    // Clear Overflow Flag
+              Sec               => {self.set_carry();},         // Set Carry Flag
+              Sed               => {self.set_decimal();},       // Set Decimal Mode
+              Sei               => {self.set_interrupt();},     // Set Interrupt Disable Bit
+              CmpImmediate      => {
                                     let m = self.immediate();
-                                    let A = self.reg_a;
-                                    self.CMP(m,A);
+                                    let a = self.reg_a;
+                                    self.cmp(m,a);
                                 },
-              cmp_zero_page     => {
+              CmpZeroPage       => {
                                     let m = self.zero_page();
-                                    let A = self.reg_a;
-                                    self.CMP(m,A);
+                                    let a = self.reg_a;
+                                    self.cmp(m,a);
                                 },
-              cmp_zero_page_x   => {
+              CmpZeroPageX      => {
                                     let m = self.zero_page_x();
-                                    let A = self.reg_a;
-                                    self.CMP(m,A);
+                                    let a = self.reg_a;
+                                    self.cmp(m,a);
                                 },
-              cmp_absolute      => {
+              CmpAbsolute       => {
                                     let m = self.absolute();
-                                    let A = self.reg_a;
-                                    self.CMP(m,A);
+                                    let a = self.reg_a;
+                                    self.cmp(m,a);
                                 },
-              cmp_absolute_x    => {
+              CmpAbsoluteX      => {
                                     let m = self.absolute_x();
-                                    let A = self.reg_a;
-                                    self.CMP(m,A);
+                                    let a = self.reg_a;
+                                    self.cmp(m,a);
                                 },
-              cmp_absolute_y    => {
+              CmpAbsoluteY      => {
                                     let m = self.absolute_y();
-                                    let A = self.reg_a;
-                                    self.CMP(m,A);
+                                    let a = self.reg_a;
+                                    self.cmp(m,a);
                                 },
-              cmp_indirect_x    => {
+              CmpIndirectX      => {
                                     let m = self.indirect_x();
-                                    let A = self.reg_a;
-                                    self.CMP(m,A);
+                                    let a = self.reg_a;
+                                    self.cmp(m,a);
                                 },
-              cmp_indirect_y    => {
+              CmpIndirectY      => {
                                     let m = self.indirect_y();
-                                    let A = self.reg_a;
-                                    self.CMP(m,A);
+                                    let a = self.reg_a;
+                                    self.cmp(m,a);
                                 },
-              cpx_immediate     => {
+              CpxImmediate      => {
                                     let m = self.immediate();
-                                    let X = self.reg_x;
-                                    self.CMP(m,X);
+                                    let x = self.reg_x;
+                                    self.cmp(m,x);
                                 },
-              cpx_zero_page     => {
+              CpxZeroPage       => {
                                     let m = self.zero_page();
-                                    let X = self.reg_x;
-                                    self.CMP(m,X);
+                                    let x = self.reg_x;
+                                    self.cmp(m,x);
                                 },
-              cpx_absolute      => {
+              CpxAbsolute       => {
                                     let m = self.absolute();
-                                    let X = self.reg_x;
-                                    self.CMP(m,X);
+                                    let x = self.reg_x;
+                                    self.cmp(m,x);
                                 },
-              cpy_immediate     => {
+              CpyImmediate      => {
                                     let m = self.immediate();
-                                    let Y = self.reg_y;
-                                    self.CMP(m,Y);
+                                    let y = self.reg_y;
+                                    self.cmp(m,y);
                                 },
-              cpy_zero_page     => {
+              CpyZeroPage       => {
                                     let m = self.zero_page();
-                                    let Y = self.reg_y;
-                                    self.CMP(m,Y);
+                                    let y = self.reg_y;
+                                    self.cmp(m,y);
                                 },
-              cpy_absolute      => {
+              CpyAbsolute       => {
                                     let m = self.absolute();
-                                    let Y = self.reg_y;
-                                    self.CMP(m,Y);
+                                    let y = self.reg_y;
+                                    self.cmp(m,y);
                                 },
 
-              dec_zero_page     => {
-                                    let mut m = self.zero_page();
-                                    m = (m -1) & 0xFF;
-                                    self.FLAGS(m)
+              DecZeroPage       => {
+                                    let m = (self.zero_page() - 1) & 0xFF;
+                                    self.sign_zero_flags(m)
                                 },
-              dec_zero_page_x   => {
-                                    let mut m = self.zero_page_x();
-                                    m = (m -1) & 0xFF;
-                                    self.FLAGS(m)
+              DecZeroPageX      => {
+                                    let m = (self.zero_page_x() - 1) & 0xFF;
+                                    self.sign_zero_flags(m)
                                 },
-              dec_absolute      => {
-                                    let mut m = self.absolute();
-                                    m = (m -1) & 0xFF;
-                                    self.FLAGS(m)
+              DecAbsolute       => {
+                                    let m = (self.absolute() - 1) & 0xFF;
+                                    self.sign_zero_flags(m)
                                 },
-              dec_absolute_x    => {
-                                    let mut m = self.absolute_x();
-                                    m = (m -1) & 0xFF;
-                                    self.FLAGS(m)
+              DecAbsoluteX      => {
+                                    let m = (self.absolute_x() - 1) & 0xFF;
+                                    self.sign_zero_flags(m)
                                 },
-
-              dex               => {
+              Dex               => {
                                     self.reg_x = self.reg_x - 1;
-                                    let X = self.reg_x;
-                                    self.FLAGS(X);
-
-                                }, // Decrement index X by one
-              dey               => {
+                                    let x = self.reg_x;
+                                    self.sign_zero_flags(x);
+                                },
+              Dey               => {
                                     self.reg_y = self.reg_y - 1;
-                                    let Y = self.reg_y;
-                                    self.FLAGS(Y)
-                                }, // Decrement index Y by one
-              inx               => {
+                                    let y = self.reg_y;
+                                    self.sign_zero_flags(y)
+                                },
+              Inx               => {
                                     self.reg_x = self.reg_x + 1;
-                                    let X = self.reg_x;
-                                    self.FLAGS(X)
-                                }, // Increment index X by one
-              iny               => {
+                                    let x = self.reg_x;
+                                    self.sign_zero_flags(x)
+                                },
+              Iny               => {
                                     self.reg_y = self.reg_y + 1;
-                                    let Y = self.reg_y;
-                                    self.FLAGS(Y)
-                                },// Increment index Y by one
-              eor_immediate     => {
+                                    let y = self.reg_y;
+                                    self.sign_zero_flags(y)
+                                },
+              EorImmediate      => {
                                     let m = self.immediate();
-                                    self.EOR(m);
+                                    self.eor(m);
                                 },
-              eor_zero_page     => {
+              EorZeroPage       => {
                                     let m = self.zero_page();
-                                    self.EOR(m);
+                                    self.eor(m);
                                 },
-              eor_zero_page_x   => {
+              EorZeroPageX      => {
                                     let m = self.zero_page_x();
-                                    self.EOR(m);
+                                    self.eor(m);
                                 },
-              eor_absolute      => {
+              EorAbsolute       => {
                                     let m = self.absolute();
-                                    self.EOR(m);
+                                    self.eor(m);
                                 },
-              eor_absolute_x    => {
+              EorAbsoluteX      => {
                                     let m = self.absolute_x();
-                                    self.EOR(m);
+                                    self.eor(m);
                                 },
-              eor_absolute_y    => {
+              EorAbsoluteY      => {
                                     let m = self.absolute_y();
-                                    self.EOR(m);
+                                    self.eor(m);
                                 },
-              eor_indirect_x    => {
+              EorIndirectX      => {
                                     let m = self.indirect_x();
-                                    self.EOR(m);
+                                    self.eor(m);
                                 },
-              eor_indirect_y    => {
+              EorIndirectY      => {
                                     let m = self.indirect_y();
-                                    self.EOR(m);
+                                    self.eor(m);
                                 },
 
-              inc_zero_page     => {
-                                    let mut m = self.zero_page();
-                                    m = (m + 1) & 0xFF;
-                                    self.FLAGS(m);
+              IncZeroPage       => {
+                                    let m = (self.zero_page() + 1) & 0xFF;
+                                    self.sign_zero_flags(m);
                                 },
-              inc_zero_page_x   => {
-                                    let mut m = self.zero_page_x();
-                                    m = (m + 1) & 0xFF;
-                                    self.FLAGS(m);
+              IncZeroPageX      => {
+                                    let m = (self.zero_page_x() + 1) & 0xFF;
+                                    self.sign_zero_flags(m);
                                 },
-              inc_absolute      => {
-                                    let mut m = self.absolute();
-                                    m = (m + 1) & 0xFF;
-                                    self.FLAGS(m);
+              IncAbsolute       => {
+                                    let m = (self.absolute() + 1) & 0xFF;
+                                    self.sign_zero_flags(m);
                                 },
-              inc_absolute_x    => {
-                                    let mut m = self.absolute_x();
-                                    m = (m + 1) & 0xFF;
-                                    self.FLAGS(m);
+              IncAbsoluteX      => {
+                                    let m = (self.absolute_x() + 1) & 0xFF;
+                                    self.sign_zero_flags(m);
                                 },
-              jmp_absolute      => {
+              JmpAbsolute       => {
                                     self.reg_pc = self.read_u16(self.reg_pc);
                                 },
-              jmp_indirect      => {
+              JmpIndirect       => {
                                     self.reg_pc = self.read_u16(self.reg_pc);
                                 },
-              jsr_absolute      => {// push (PC+2),(PC+1) -> PCL,(PC+2) -> PCH
+              JsrAbsolute       => {// push (PC+2),(PC+1) -> PCL,(PC+2) -> PCH
                                     // TODO: Reconsider stack setup. Specialized functions or actual stack might be cool
                                     let pc = self.reg_pc + 2;
                                     let sp = self.reg_sp as u16;
-
                                     self.write_u16(sp, pc); // Push PC + 2 onto stack
                                     let jsr_addr = self.read_u16(self.reg_pc+1);
-                                    println!("{}",jsr_addr);
                                     self.reg_pc = jsr_addr;
-                                    //1    PC     R  fetch opcode, increment PC
-                                    //2    PC     R  fetch low address byte, increment PC
-                                    //3  $0100,S  R  internal operation (predecrement S?)
-                                    //4  $0100,S  W  push PCH on stack, decrement S
-                                    //5  $0100,S  W  push PCL on stack, decrement S
-                                    //6    PC     R  copy low address byte to PCL, fetch high address byte to PCH
-;
                                 },
-              lda_immediate     => {
+              LdaImmediate      => {
                                     self.reg_a = self.immediate();
-                                    self.reg_fr[SIGN] = if((self.reg_a & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_a == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_a;
+                                    self.sign_zero_flags(l);
                                 },
-              lda_zero_page     => {
+              LdaZeroPage       => {
                                     self.reg_a = self.zero_page();
-                                    self.reg_fr[SIGN] = if((self.reg_a & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_a == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_a;
+                                    self.sign_zero_flags(l);
                                 },
-              lda_zero_page_x   => {
+              LdaZeroPageX      => {
                                     self.reg_a = self.zero_page_x();
-                                    self.reg_fr[SIGN] = if((self.reg_a & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_a == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_a;
+                                    self.sign_zero_flags(l);
                                 },
-              lda_absolute      => {
+              LdaAbsolute       => {
                                     self.reg_a = self.absolute();
-                                    self.reg_fr[SIGN] = if((self.reg_a & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_a == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_a;
+                                    self.sign_zero_flags(l);
                                 },
-              lda_absolute_x    => {
+              LdaAbsoluteX      => {
                                     self.reg_a = self.absolute_x();
-                                    self.reg_fr[SIGN] = if((self.reg_a & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_a == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_a;
+                                    self.sign_zero_flags(l);
                                 },
-              lda_absolute_y    => {
+              LdaAbsoluteY      => {
                                     self.reg_a = self.absolute_y();
-                                    self.reg_fr[SIGN] = if((self.reg_a & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_a == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_a;
+                                    self.sign_zero_flags(l);
                                 },
-              lda_indirect_x    => {
+              LdaIndirectX      => {
                                     self.reg_a = self.indirect_x();
-                                    self.reg_fr[SIGN] = if((self.reg_a & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_a == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_a;
+                                    self.sign_zero_flags(l);
                                 },
-              lda_indirect_y    => {
+              LdaIndirectY      => {
                                     self.reg_a = self.indirect_y();
-                                    self.reg_fr[SIGN] = if((self.reg_a & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_a == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_a;
+                                    self.sign_zero_flags(l);
                                 },
 
-              ldx_immediate     => {
+              LdxImmediate      => {
                                     self.reg_x = self.immediate();
-                                    self.reg_fr[SIGN] = if((self.reg_x & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_x == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_x;
+                                    self.sign_zero_flags(l);
                                 },
-              ldx_zero_page     => {
+              LdxZeroPage       => {
                                     self.reg_x = self.zero_page();
-                                    self.reg_fr[SIGN] = if((self.reg_x & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_x == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_x;
+                                    self.sign_zero_flags(l);
                                 },
-              ldx_zero_page_x   => {
+              LdxZeroPageX      => {
                                     self.reg_x = self.zero_page_x();
-                                    self.reg_fr[SIGN] = if((self.reg_x & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_x == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_x;
+                                    self.sign_zero_flags(l);
                                 },
-              ldx_absolute      => {
+              LdxAbsolute       => {
                                     self.reg_x = self.absolute();
-                                    self.reg_fr[SIGN] = if((self.reg_x & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_x == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_x;
+                                    self.sign_zero_flags(l);
                                 },
-              ldx_absolute_x    => {
+              LdxAbsoluteX      => {
                                     self.reg_x = self.absolute_x();
-                                    self.reg_fr[SIGN] = if((self.reg_x & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_x == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_x;
+                                    self.sign_zero_flags(l);
                                 },
-
-              ldy_immediate     => {
+              LdyImmediate      => {
                                     self.reg_y = self.immediate();
-                                    self.reg_fr[SIGN] = if((self.reg_y & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_y == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_y;
+                                    self.sign_zero_flags(l);
                                 },
-              ldy_zero_page     => {
+              LdyZeroPage       => {
                                     self.reg_y = self.zero_page();
-                                    self.reg_fr[SIGN] = if((self.reg_y & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_y == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_y;
+                                    self.sign_zero_flags(l);
                                 },
-              ldy_zero_page_x   => {
+              LdyZeroPageX      => {
                                     self.reg_y = self.zero_page_x();
-                                    self.reg_fr[SIGN] = if((self.reg_y & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_y == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_y;
+                                    self.sign_zero_flags(l);
                                 },
-              ldy_absolute      => {
+              LdyAbsolute       => {
                                     self.reg_y = self.absolute();
-                                    self.reg_fr[SIGN] = if((self.reg_y & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_y == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_y;
+                                    self.sign_zero_flags(l);
                                 },
-              ldy_absolute_x    => {
+              LdyAbsoluteX      => {
                                     self.reg_y = self.absolute_x();
-                                    self.reg_fr[SIGN] = if((self.reg_y & 0x80) == 0x80){ 1 } else { 0 };
-                                    self.reg_fr[ZERO]  = if(self.reg_y == 0x00)        { 1 } else { 0 };
+                                    let l = self.reg_y;
+                                    self.sign_zero_flags(l);
                                 },
-
-              lsr_accumulator   => {
-                                    let A = self.reg_a;
-                                    self.LSR(A);
+              LsrAccumulator    => {
+                                    let a = self.reg_a;
+                                    self.lsr(a);
                                 },
-              lsr_zero_page     => {
-                                    let B = self.zero_page();
-                                    self.LSR(B);
+              LsrZeroPage       => {
+                                    let b = self.zero_page();
+                                    self.lsr(b);
                                 },
-              lsr_zero_page_x   => {
-                                    let B = self.zero_page_x();
-                                    self.LSR(B);
+              LsrZeroPageX      => {
+                                    let b = self.zero_page_x();
+                                    self.lsr(b);
                                 },
-              lsr_absolute      => {
-                                    let B = self.absolute();
-                                    self.LSR(B);
+              LSRAbsolute       => {
+                                    let b = self.absolute();
+                                    self.lsr(b);
                                 },
-              lsr_absolute_x    => {
-                                    let B = self.absolute_x();
-                                    self.LSR(B);
+              LSRAbsoluteX      => {
+                                    let b = self.absolute_x();
+                                    self.lsr(b);
                                 },
-              nop_implied       => { /* No operation 2 cycles */},
-              // A OR M --> A
-              ora_immediate     => {
-                                    println!("ora!");
-                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
-                                    self.reg_pc += 1;
+              NopImplied        => { /* No operation 2 cycles */},
+              OraImmediate      => {
+                                    self.reg_a = self.reg_a | self.immediate();
+                                    let a = self.reg_a;
+                                    self.sign_zero_flags(a);
                                 },
-              ora_zero_page     => {
-                                    println!("ora!");
-                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
-                                    self.reg_pc += 1;
+              OraZeroPage       => {
+                                    self.reg_a = self.reg_a | self.zero_page();
+                                    let a = self.reg_a;
+                                    self.sign_zero_flags(a);
                                 },
-              ora_zero_page_x   => {
-                                    println!("ora!");
-                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
-                                    self.reg_pc += 1;
+              OraZeroPageX      => {
+                                    self.reg_a = self.reg_a | self.zero_page_x();
+                                    let a = self.reg_a;
+                                    self.sign_zero_flags(a);
                                 },
-              ora_absolute      => {
-                                    println!("ora!");
-                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
-                                    self.reg_pc += 1;
+              OraAbsolute       => {
+                                    self.reg_a = self.reg_a | self.absolute();
+                                    let a = self.reg_a;
+                                    self.sign_zero_flags(a);
                                 },
-              ora_absolute_x    => {
-                                    println!("ora!");
-                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
-                                    self.reg_pc += 1;
+              OraAbsoluteX      => {
+                                    self.reg_a = self.reg_a | self.absolute_x();
+                                    let a = self.reg_a;
+                                    self.sign_zero_flags(a);
                                 },
-              ora_absolute_y    => {
-                                    println!("ora!");
-                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
-                                    self.reg_pc += 1;
+              OraAbsoluteY      => {
+                                    self.reg_a = self.reg_a | self.absolute_y();
+                                    let a = self.reg_a;
+                                    self.sign_zero_flags(a);
                                 },
-              ora_indirect_x    => {
-                                    println!("ora!");
-                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
-                                    self.reg_pc += 1;
+              OraIndirectX      => {
+                                    self.reg_a = self.reg_a | self.indirect_x();
+                                    let a = self.reg_a;
+                                    self.sign_zero_flags(a);
                                 },
-              ora_indirect_y    => {
-                                    println!("ora!");
-                                    self.reg_a = self.reg_a | self.read_u8(self.reg_pc);
-                                    self.reg_pc += 1;
+              OraIndirectY      => {
+                                    self.reg_a = self.reg_a | self.indirect_y();
+                                    let a = self.reg_a;
+                                    self.sign_zero_flags(a);
                                 },
-              pha               => {},
-              php               => {},
-              pla               => {},
-              plp               => {},
-              rol_accumulator   => {},
-              rol_zero_page     => {},
-              rol_zero_page_x   => {},
-              rol_absolute      => {},
-              rol_absolute_x    => {},
-              ror_accumulator   => {},
-              ror_zero_page     => {},
-              ror_zero_page_x   => {},
-              ror_absolute      => {},
-              ror_absolute_x    => {},
-              rti               => { // Return from interrupt
-
+              Pha               => { //Push A onto Stack
+                                    let a = self.reg_a;
+                                    let addr = 0x0100 + (self.reg_sp as u16);
+                                    self.write_u8(addr,a);
+                                    self.reg_sp -= 1;
                                 },
-              rts               => { // Return from subroutine: Operation:  PC from S, PC + 1 -> PC
-
+              Php               => { //Push P onto Stack
+                                    let p = ((self.reg_flag[SIGN] as u8) << 7) + ((self.reg_flag[OVERFLOW] as u8) << 6) + ((self.reg_flag[BREAK] as u8) << 4) + ((self.reg_flag[DECIMAL] as u8) << 3) + ((self.reg_flag[INTERRUPT] as u8) << 2) + ((self.reg_flag[ZERO] as u8) << 1) +(self.reg_flag[CARRY] as u8);
+                                    let addr = 0x0100 + (self.reg_sp as u16);
+                                    self.write_u8(addr,p);
+                                    self.reg_sp -= 1;
                                 },
-              sbc_immediate     => {
-                                    let m = self.read_u8(self.reg_pc);
-                                    self.SBC(m);
+              Pla               => { //Pull from Stack to A
+                                    self.reg_sp += 1;
+                                    let addr = 0x0100 + (self.reg_sp as u16);
+                                    let a = self.read_u8(addr);
+                                    self.reg_a = a;
+                                    self.sign_zero_flags(a);
                                 },
-              sbc_zero_page     => {},
-              sbc_zero_page_x   => {},
-              sbc_absolute      => {},
-              sbc_absolute_x    => {},
-              sbc_absolute_y    => {},
-              sbc_indirect_x    => {},
-              sbc_indirect_y    => {},
-              sta_zero_page     => {},
-              sta_zero_page_x   => {},
-              sta_absolute      => {},
-              sta_absolute_x    => {},
-              sta_absolute_y    => {},
-              sta_indirect_x    => {},
-              sta_indirect_y    => {},
-              stx_zero_page     => {},
-              stx_zero_page_x   => {},
-              stx_absolute      => {},
-              sty_zero_page     => { // Store index y in memory: 2 bytes
-
+              Plp               => { //Pull from Stack to P
+                                    self.reg_sp += 1;
+                                    let addr = 0x0100 + (self.reg_sp as u16);
+                                    let p = self.read_u8(addr);
+                                    self.convert_to_sign_zero_flags(p);
                                 },
-              sty_zero_page_x   => { // Store index y in memory: 2 bytes
-
+              RolAccumulator    => {
+                                    let a = self.reg_a;
+                                    self.rol(a);
                                 },
-              sty_absolute      => { // Store index y in memory: 3 bytes
-
+              RolZeroPage       => {
+                                    let b = self.zero_page();
+                                    self.rol(b);
                                 },
-              tax               => {self.reg_x = self.reg_a;},  // Transfer Accumulator to index x
-              tay               => {self.reg_y = self.reg_a;},  // Transfer Accumulator to index y
-              tsx               => {self.reg_x = self.reg_sp;}, // Transfer Stack Pointer to index x
-              txa               => {self.reg_a = self.reg_x;},  // Transfer index X to accumulator
-              txs               => {self.reg_sp = self.reg_x;}, // Transfer index X to stack pointer
-              tya               => {self.reg_a = self.reg_y;},  // Transfer index Y to accumulator
+              RolZeroPageX      => {
+                                    let b = self.zero_page_x();
+                                    self.rol(b);
+                                },
+              RolAbsolute       => {
+                                    let b = self.absolute();
+                                    self.rol(b);
+                                },
+              RolAbsoluteX      => {
+                                    let b = self.absolute_x();
+                                    self.rol(b);
+                                },
+              Roraccumulator    => {
+                                    let a = self.reg_a;
+                                    self.ror(a);
+                                },
+              RorZeroPage       => {
+                                    let b = self.zero_page();
+                                    self.ror(b);
+                                },
+              RorZeroPageX      => {
+                                    let b = self.zero_page_x();
+                                    self.ror(b);
+                                },
+              RorAbsolute       => {
+                                    let b = self.absolute();
+                                    self.ror(b);
+                                },
+              RorAbsoluteX      => {
+                                    let b = self.absolute_x();
+                                    self.ror(b);
+                                },
+              Rti               => { // Return from interrupt
+                                    self.reg_sp -= 1;
+                                    let addr_p = (self.reg_sp as u16) + 0x0100;
+                                    let p = self.read_u8(addr_p);
+                                    self.convert_to_sign_zero_flags(p);
+                                    self.reg_sp -= 1;
+                                    let addr_l = (self.reg_sp as u16) + 0x0100;
+                                    let l = self.read_u8(addr_l) as u16;
+                                    self.reg_sp -= 1;
+                                    let addr_h = (self.reg_sp as u16) + 0x0100;
+                                    let h = (self.read_u8(addr_h) as u16) << 8;
+                                    self.reg_pc = h | l;
+                                },
+              Rts               => { // Return from subroutine: Operation:  PC from S, PC + 1 -> PC
+                                    self.reg_sp += 1;
+                                    let addr_l = (self.reg_sp as u16) + 0x0100;
+                                    let l = self.read_u8(addr_l) as u16;
+                                    self.reg_sp += 1;
+                                    let addr_h = (self.reg_sp as u16) + 0x0100;
+                                    let h = (self.read_u8(addr_h) as u16) << 8;
+                                    self.reg_pc = ( h | l ) + l;
+                                },
+              SbcImmediate      => {
+                                    let m = self.immediate();
+                                    self.sbc(m);
+                                },
+              SbcZeroPage       => {
+                                    let m = self.zero_page();
+                                    self.sbc(m);
+                                },
+              SbcZeroPageX      => {
+                                    let m = self.zero_page_x();
+                                    self.sbc(m);
+                                },
+              SbcAbsolute       => {
+                                    let m = self.absolute();
+                                    self.sbc(m);
+                                },
+              SbcAbsoluteX      => {
+                                    let m = self.absolute_x();
+                                    self.sbc(m);
+                                },
+              SbcAbsoluteY      => {
+                                    let m = self.absolute_y();
+                                    self.sbc(m);
+                                },
+              SbcIndirectX      => {
+                                    let m = self.indirect_x();
+                                    self.sbc(m);
+                                },
+              SbcIndirectY      => {
+                                    let m = self.indirect_y();
+                                    self.sbc(m);
+                                },
+              StaZeroPage       => {
+                                    let a = self.reg_a;
+                                    let addr = self.zero_page() as u16;
+                                    self.st_axy(addr,a);
+                                },
+              StaZeroPageX      => {
+                                    let a = self.reg_a;
+                                    let addr = self.zero_page_x() as u16;
+                                    self.st_axy(addr,a);
+                                },
+              StaAbsolute       => {
+                                    let a = self.reg_a;
+                                    let addr = self.absolute() as u16;
+                                    self.st_axy(addr,a);
+                                },
+              StaAbsoluteX      => {
+                                    let a = self.reg_a;
+                                    let addr = self.absolute_x() as u16;
+                                    self.st_axy(addr,a);
+                                },
+              StaAbsoluteY      => {
+                                    let a = self.reg_a;
+                                    let addr = self.absolute_y() as u16;
+                                    self.st_axy(addr,a);
+                                },
+              StaIndirectX      => {
+                                    let a = self.reg_a;
+                                    let addr = self.indirect_x() as u16;
+                                    self.st_axy(addr,a);
+                                },
+              StaIndirectY      => {
+                                    let a = self.reg_a;
+                                    let addr = self.indirect_y() as u16;
+                                    self.st_axy(addr,a);
+                                },
+              StxZeroPage       => {
+                                    let x = self.reg_x;
+                                    let addr = self.zero_page() as u16;
+                                    self.st_axy(addr,x);
+                                },
+              StxZeroPageX      => {
+                                    let x = self.reg_x;
+                                    let addr = self.zero_page_x() as u16;
+                                    self.st_axy(addr,x);
+                                },
+              StxAbsolute       => {
+                                    let x = self.reg_x;
+                                    let addr = self.absolute() as u16;
+                                    self.st_axy(addr,x);
+                                },
+              StyZeroPage       => {
+                                    let y = self.reg_y;
+                                    let addr = self.zero_page() as u16;
+                                    self.st_axy(addr,y);
+                                },
+              StyZeroPageX      => {
+                                    let y = self.reg_y;
+                                    let addr = self.zero_page_x() as u16;
+                                    self.st_axy(addr,y);
+                                },
+              StyAbsolute       => {
+                                    let y = self.reg_y;
+                                    let addr = self.absolute() as u16;
+                                    self.st_axy(addr,y);
+                                },
+              Tax               => {self.reg_x = self.reg_a;},  // Transfer Accumulator to index x
+              Tay               => {self.reg_y = self.reg_a;},  // Transfer Accumulator to index y
+              Tsx               => {self.reg_x = self.reg_sp;}, // Transfer Stack Pointer to index x
+              Txa               => {self.reg_a = self.reg_x;},  // Transfer index X to accumulator
+              Txs               => {self.reg_sp = self.reg_x;}, // Transfer index X to stack pointer
+              Tya               => {self.reg_a = self.reg_y;},  // Transfer index Y to accumulator
 
         }
     }
     fn immediate(&mut self) -> u8 {
         let m = self.read_u8(self.reg_pc);
-        self.reg_pc += 1;
+        self.incr_pc(1);
         m
     }
     fn zero_page(&mut self) -> u8 {
-        let _addr = self.read_u8(self.reg_pc);  //Fetch the operand from the next byte
-        self.reg_pc += 1;                       //Increment the PC
+        let _addr = self.read_u8(self.reg_pc); //Fetch the operand from the next byte
+        self.incr_pc(1);                       //Increment the PC
         self.read_u8(_addr as u16)             //Fetch the value of the address/operand
     }
     fn zero_page_x(&mut self) -> u8 {
         let mut _addr = self.read_u8(self.reg_pc);  //Fetch the operand from the next byte
-        self.reg_pc += 1;                           //Increment the PC
+        self.incr_pc(1);                            //Increment the PC
         _addr = (_addr + self.reg_x) & 0xFF;        //Add the X register to the address and wrap around if address +X > 0xF
         self.read_u8(_addr as u16)
     }
     fn absolute(&mut self) -> u8 {
         let _addr = self.read_u16(self.reg_pc); // Fetch the next addr pointing anywhere in memory
-        self.reg_pc += 2;
+        self.incr_pc(2);
         self.read_u8(_addr)
     }
     fn absolute_x(&mut self) -> u8 {
-        let mut _addr = self.read_u16(self.reg_pc); // Fetch the next addr pointing anywhere in memory
-        self.reg_pc += 2;
-        let a = (_addr & 0x100);
-        _addr += (self.reg_x as u16);
-        //if((_addr & 0x100) ^ a){
-        //    self.read_u8(_addr);
-        //}
-        self.read_u8(_addr)
+        let mut addr = self.read_u16(self.reg_pc); // Fetch the next addr pointing anywhere in memory
+        let _addr = addr & 0x100;
+        self.incr_pc(2);
+        addr += self.reg_x as u16;
+        // Check if there is a page crossing
+        /*if (addr & 0x100) ^ _addr {
+            self.read_u8(addr);
+        }*/
+        self.read_u8(addr)
     }
     fn absolute_y(&mut self) -> u8 {
-        let mut _addr = self.read_u16(self.reg_pc); // Fetch the next addr pointing anywhere in memory
-        self.reg_pc += 2;
-        let a = (_addr & 0x100);
-        _addr += (self.reg_y as u16);
-        //if((_addr & 0x100) ^ a){
-        //    self.read_u8(_addr);
-        //}
-        self.read_u8(_addr)
+        let mut addr = self.read_u16(self.reg_pc); // Fetch the next addr pointing anywhere in memory
+        let _addr = addr & 0x100;
+        self.incr_pc(2);
+        addr += self.reg_y as u16;
+        // Check if there is a page crossing
+        /*if (addr & 0x100) ^ _addr {
+            self.read_u8(addr);
+        }*/
+        self.read_u8(addr)
     }
     fn indirect_x(&mut self) -> u8 {
-        let mut addr = self.read_u8(self.reg_pc);  // Fetch the pointer address from the next byte in the PC
-        self.reg_pc += 1;
+        let addr = self.read_u8(self.reg_pc);  // Fetch the pointer address from the next byte in the PC
         let tmp = (addr + self.reg_x) & 0xFF;
         let _addr = self.read_u16(tmp as u16);
+        self.incr_pc(1);
         self.read_u8(_addr)
     }
     fn indirect_y(&mut self) -> u8 {
         let mut _addr = self.read_u8(self.reg_pc); //u8
         let mut _addr = _addr as u16;
-        self.reg_pc += 1;
         let mut addr = self.read_u16(_addr); //u16
+        self.incr_pc(1);
         _addr = addr & 0x100;
-        addr += (self.reg_y as u16);
-        if((addr & 0x100) != _addr){
+        addr += self.reg_y as u16;
+        if (addr & 0x100) != _addr {
             self.read_u8(addr);
         }
         self.read_u8(addr)
     }
     // Basic functions
-    fn ADC(&mut self, m: u8){ // Add Memory to Accumulator with Carry: A + M + C -> A, C
-        let ret = self.reg_a + m + self.reg_fr[CARRY];
+    fn adc(&mut self, m: u8){ // Add Memory to Accumulator with Carry: A + M + C -> A, C
+        let ret = self.reg_a + m + self.reg_flag[CARRY];
 
-        self.reg_fr[OVERFLOW] = (ret ^ self.reg_a) & (ret ^ m) & 0x80;
-        self.reg_fr[CARRY] = (ret & 0x100); //>> 8;
-        self.reg_fr[ZERO]  = ret & 0xFF;
-        self.reg_fr[SIGN]  = ret & 0xFF;
-        self.reg_a         = ret & 0xFF;
-        self.reg_fr[ZERO]  = !self.reg_fr[ZERO];
+        self.reg_flag[OVERFLOW] = (ret ^ self.reg_a) & (ret ^ m) & 0x80;
+        self.reg_flag[CARRY] = ret & 0x100; //>> 8;
+        self.reg_flag[ZERO]  = ret & 0xFF;
+        self.reg_flag[SIGN]  = ret & 0xFF;
+        self.reg_a           = ret & 0xFF;
+        self.reg_flag[ZERO]  = !self.reg_flag[ZERO];
     }
-    fn AND(&mut self, m: u8){
+    fn and(&mut self, m: u8){
         self.reg_a = self.reg_a & m;
-        self.reg_fr[SIGN] = if((self.reg_a & 0x80) == 0x80){ 1 } else { 0 };
-        self.reg_fr[ZERO] = if(self.reg_a == 0x00){ 1 } else { 0 };
+        self.reg_flag[SIGN] = if (self.reg_a & 0x80) == 0x80 { 1 } else { 0 };
+        self.reg_flag[ZERO] = if self.reg_a == 0x00          { 1 } else { 0 };
     }
-    fn ASL(&mut self, B: u8) {
-        self.reg_fr[CARRY]= if((B & 0x80) == 0x80){ 1 } else { 0 };
-        let mut B = (B << 1) & 0xFE;
-        self.reg_fr[SIGN] = if((B & 0x80) == 0x80){ 1 } else { 0 };
-        self.reg_fr[ZERO] = if(B == 0x00){ 1 } else { 0 };
+    fn asl(&mut self, b: u8) {
+        self.reg_flag[CARRY]= if (b & 0x80) == 0x80 { 1 } else { 0 };
+        let b = (b << 1) & 0xFE;
+        self.reg_flag[SIGN] = if (b & 0x80) == 0x80 { 1 } else { 0 };
+        self.reg_flag[ZERO] = if b == 0x00          { 1 } else { 0 };
     }
-    fn CMP(&mut self, m: u8, Z: u8) {
-        let t = Z - m;
-        self.reg_fr[SIGN]  = if((t & 0x80) == 0x80){ 1 } else { 0 };
-        self.reg_fr[CARRY] = if(Z >= m)            { 1 } else { 0 };
-        self.reg_fr[ZERO]  = if(t == 0x00)         { 1 } else { 0 };
+    fn cmp(&mut self, m: u8, z: u8) {
+        let t = z - m;
+        self.reg_flag[SIGN]  = if (t & 0x80) == 0x80 { 1 } else { 0 };
+        self.reg_flag[CARRY] = if z >= m             { 1 } else { 0 };
+        self.reg_flag[ZERO]  = if t == 0x00          { 1 } else { 0 };
     }
-    fn EOR(&mut self, m: u8){
+    fn eor(&mut self, m: u8){
         self.reg_a = self.reg_a ^ m;
-        self.reg_fr[SIGN] = if((self.reg_a & 0x80) == 0x80){ 1 } else { 0 };
-        self.reg_fr[ZERO] = if(self.reg_a == 0){ 1 } else { 0 };
+        self.reg_flag[SIGN] = if (self.reg_a & 0x80) == 0x80 { 1 } else { 0 };
+        self.reg_flag[ZERO] = if self.reg_a == 0             { 1 } else { 0 };
     }
-    fn FLAGS(&mut self, l: u8){
-        self.reg_fr[SIGN] = if((l & 0x80) == 0x80){ 1 } else { 0 };
-        self.reg_fr[ZERO] = if(l == 0x00)         { 1 } else { 0 };
+    fn sign_zero_flags(&mut self, l: u8){
+        self.reg_flag[SIGN] = if (l & 0x80) == 0x80 { 1 } else { 0 };
+        self.reg_flag[ZERO] = if l == 0x00          { 1 } else { 0 };
     }
-    fn LSR(&mut self, B: u8){
-        self.reg_fr[SIGN]  = 0;
-        self.reg_fr[CARRY] = if((B & 0x01) == 0x01){ 1 } else { 0 };
-        let B = (B >> 1) & 0x7F;
-        self.reg_fr[ZERO]  = if(B == 0x00)        { 1 } else { 0 };
+    fn lsr(&mut self, b: u8){
+        self.reg_flag[SIGN] = 0;
+        self.reg_flag[CARRY] = if (b & 0x01) == 0x01 { 1 } else { 0 };
+        let b = (b >> 1) & 0x7F;
+        self.reg_flag[ZERO]  = if b == 0x00          { 1 } else { 0 };
     }
-    fn SBC(&mut self, m: u8){
-        let ret = self.reg_a - m - !self.reg_fr[CARRY];
 
-        self.reg_fr[OVERFLOW]   = (ret ^ self.reg_a) & (ret ^ m) & 0x80;
-        self.reg_fr[CARRY] = !(ret & 0x100); //>> 8;
-        self.reg_fr[ZERO]  = ret & 0xFF;
-        self.reg_fr[SIGN]  = ret & 0xFF;
-        self.reg_a         = ret & 0xFF;
-        self.reg_fr[ZERO]  = !self.reg_fr[ZERO];
+    fn rol(&mut self,b : u8){
+        let t = if (b & 0x80) == 0x80 { 1 } else { 0 };
+        let b = (b << 1) & 0xFE;
+        self.reg_flag[CARRY] = t;
+        self.sign_zero_flags(b);
     }
-    fn set_sign(&mut self){self.reg_fr[SIGN] = 1;}
-    fn clear_sign(&mut self){self.reg_fr[SIGN] = 0;}
-    fn set_overflow(&mut self){self.reg_fr[OVERFLOW] = 1;}
-    fn clear_overflow(&mut self){self.reg_fr[OVERFLOW] = 0;}
-    fn set_break(&mut self){self.reg_fr[BREAK] = 1;}
-    fn clear_break(&mut self){self.reg_fr[BREAK] = 0;}
-    fn set_decimal(&mut self){self.reg_fr[DECIMAL] = 1;}
-    fn clear_decimal(&mut self){self.reg_fr[DECIMAL] = 0;}
-    fn set_interrupt(&mut self){self.reg_fr[INTERRUPT] = 1;}
-    fn clear_interrupt(&mut self){self.reg_fr[INTERRUPT] = 0;}
-    fn set_zero(&mut self){self.reg_fr[ZERO] = 1;}
-    fn clear_zero(&mut self){self.reg_fr[ZERO] = 0;}
-    fn set_carry(&mut self){self.reg_fr[CARRY] = 1;}
-    fn clear_carry(&mut self){self.reg_fr[CARRY] = 0;}
+    fn ror(&mut self, b: u8){
+        let t = if (b & 0x01) == 0x01 { 1 } else { 0 };
+        let b = (b >> 1) & 0x7F;
+        self.reg_flag[CARRY] = t;
+        self.sign_zero_flags(b);
+    }
+    fn sbc(&mut self, m: u8){
+        let not_pc = !self.reg_flag[CARRY];
+        let mut t;
+        if self.reg_flag[DECIMAL] == 1 {
+            t = self.reg_a - m - not_pc; // TODO: Binary Coded Decimal  on a and m
+        } else{
+            t = self.reg_a - m - not_pc;
+            self.reg_flag[OVERFLOW] = if t > 127 { 1 } else { 0 }; // TODO: VERIFY ACCURACY OF THIS METHOD  ( || t < (0 - 128) )
+        }
+        self.reg_flag[CARRY] = if t >= 0 { 1 } else { 0 };
+        self.reg_flag[SIGN]  = if (t & 0x80) == 0x80 { 0 } else { 1 };
+        self.reg_flag[ZERO]  = if t == 0 { 1 } else { 0 };
+        self.reg_a           = t & 0xFF;
+    }
+    fn st_axy(&mut self, addr: u16, obj: u8){
+        self.write_u8(addr,obj);
+    }
+    fn incr_pc(&mut self,num: u8){
+        self.reg_pc += num as u16;
+    }
+    fn convert_to_sign_zero_flags(&mut self, p: u8){
+        self.reg_flag[SIGN]     = if (p & 0x80) == 0x80 { 1 } else { 0 };
+        self.reg_flag[OVERFLOW] = if (p & 0x40) == 0x40 { 1 } else { 0 };
+        self.reg_flag[BREAK]    = if (p & 0x10) == 0x10 { 1 } else { 0 };
+        self.reg_flag[DECIMAL]  = if (p & 0x08) == 0x08 { 1 } else { 0 };
+        self.reg_flag[INTERRUPT]= if (p & 0x04) == 0x04 { 1 } else { 0 };
+        self.reg_flag[ZERO]     = if (p & 0x02) == 0x02 { 1 } else { 0 };
+        self.reg_flag[CARRY]    = if (p & 0x01) == 0x01 { 1 } else { 0 };
+    }
+    /*fn set_zero(&mut self){self.reg_flag[ZERO] = 1;}
+    fn clear_zero(&mut self){self.reg_flag[ZERO] = 0;}
+    fn set_sign(&mut self){self.reg_flag[SIGN] = 1;}
+    fn clear_sign(&mut self){self.reg_flag[SIGN] = 0;}
+    fn set_break(&mut self){self.reg_flag[BREAK] = 1;}
+    fn clear_break(&mut self){self.reg_flag[BREAK] = 0;}
+    fn set_overflow(&mut self){self.reg_flag[OVERFLOW] = 1;}*/
+    fn clear_overflow(&mut self){self.reg_flag[OVERFLOW] = 0;}
+    fn set_decimal(&mut self){self.reg_flag[DECIMAL] = 1;}
+    fn clear_decimal(&mut self){self.reg_flag[DECIMAL] = 0;}
+    fn set_interrupt(&mut self){self.reg_flag[INTERRUPT] = 1;}
+    fn clear_interrupt(&mut self){self.reg_flag[INTERRUPT] = 0;}
+    fn set_carry(&mut self){self.reg_flag[CARRY] = 1;}
+    fn clear_carry(&mut self){self.reg_flag[CARRY] = 0;}
 
 
     pub fn run(&mut self) {

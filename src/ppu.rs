@@ -1,3 +1,4 @@
+/*
 struct Ppu {
     reg_cntrl1: u8,         // address $2000
     reg_cntrl2: u8,         // address $2001
@@ -9,3 +10,4 @@ struct Ppu {
     reg_vram_io: u8,        // address $2007
 
 }
+*/

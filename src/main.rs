@@ -7,7 +7,6 @@ use std::env;
 use std::fs;
 use std::io::Read;
 use std::path::Path;
-use std::default::Default;
 
 mod nes;
 mod cpu;
@@ -24,28 +23,28 @@ fn main() {
     let file_type = rom[0].to_string() + &rom[1].to_string() + &rom[2].to_string();
     // Should contain $1A
     let file_type2 = rom[3].to_string();
-    // starting Byte 4: Length 1 - # of 16 KB PRG-ROM banks
+    // staRting Byte 4: Length 1 - # of 16 KB PRG-ROM banks
     let prg = rom[4].to_string();
-    // starting Byte 5: Length 1 - # of 8 KB CHR-ROM / VROM banks
+    // staRting Byte 5: Length 1 - # of 8 KB CHR-ROM / VROM banks
     let chr = rom[5].to_string();
-    // starting Byte 6: Length 1 - Rom control Byte 1
-    let rom_cntrl_byte_1 = rom[6].to_string();
-    // starting Byte 7: Length 1 - Rom control Byte 1
-    let rom_cntrl_byte_2 = rom[7].to_string();
-    // starting Byte 8: Length 1 - # of 8 KB RAM banks
+    // staRting Byte 6: Length 1 - Rom control Byte 1
+    let rom_cntrl_byte_1 = rom[6];
+    // staRting Byte 7: Length 1 - Rom control Byte 1
+    let rom_cntrl_byte_2 = rom[7];
+    // staRting Byte 8: Length 1 - # of 8 KB RAM banks
     let num_ram_banks = rom[8].to_string();
-    // starting Byte 9: Length 7 - Reserved
+    // staRting Byte 9: Length 7 - Reserved
     let reserved = rom[9].to_string() + &rom[10].to_string() + &rom[11].to_string() + &rom[12].to_string() + &rom[13].to_string() + &rom[14].to_string() + &rom[15].to_string();
     // Registers
 
 
-    println!("File Type {:?} {:?}",file_type,file_type2);
-    println!("# of 16 KB PRG-ROM banks {:?}",prg);
-    println!("# of 8 KB CHR-ROM / VROM banks {:?}",chr);
-    println!("rom_cntrl_byte_1 {:?}",rom_cntrl_byte_1);
-    println!("rom_cntrl_byte_2  {:?}",rom_cntrl_byte_2);
-    println!("# of 8 KB RAM banks {:?}",num_ram_banks);
-    println!("reserved {:?}",reserved);
+    println!("File Type:                      {:?} {:?}",file_type,file_type2);
+    println!("# of 16 KB PRG-ROM banks:       {:?}",prg);
+    println!("# of 8 KB CHR-ROM / VROM banks: {:?}",chr);
+    println!("Rom_cntrl_byte_1:               {:b}",rom_cntrl_byte_1);
+    println!("Rom_cntrl_byte_2:               {:b}",rom_cntrl_byte_2);
+    println!("# of 8 KB RAM banks:            {:?}",num_ram_banks);
+    println!("Reserved:                       {:?}",reserved);
 
     // Create a new instance of the NES
     let mut nes = nes::NES::new(rom);

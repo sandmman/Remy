@@ -1,10 +1,5 @@
-use instructions;
-use opcodes::Opcode;
-use byteorder::LittleEndian;
-
-const RAM_SIZE: usize = 2048;
+//const RAM_SIZE: usize = 2048;
 const MEM: usize = 64 * 1024;
-const staCK_SIZE: usize = 256;
 const MAX_MEM_ADDR: u16 = 0xffff;
 /*
 Address	Size	Description
@@ -21,16 +16,13 @@ $8000	$4000	PRG-ROM
 $C000	$4000	PRG-ROM
 */
 pub struct Memory {
-    pub ram: Box<[u8; RAM_SIZE]>, // 0x100 to 0x1FF is the stack
-                                  // 0x200-0x800 is General Ram
-                                  // 0x801 to 0x2000 mirrors 0x00 -> 0x7ff
     pub mem: Box<[u8; MEM]>,
     pub rom: Vec<u8>,
 }
 impl Memory {
     pub fn new(rom_buf: Vec<u8>) -> Memory{
         Memory {
-            ram: Box::new([0; RAM_SIZE]),
+            //ram: Box::new([0; RAM_SIZE]),
             mem: Box::new([0; MEM]),
             rom: rom_buf
         }
@@ -54,7 +46,7 @@ impl Memory {
         }
 
     }
-    pub fn read_rom_u8(&self, addr: u16) -> u8{
+    /*pub fn read_rom_u8(&self, addr: u16) -> u8{
         if addr > MAX_MEM_ADDR{
             panic!("Address out of bounds: {:#x}", addr)
         }
@@ -71,7 +63,7 @@ impl Memory {
             let least_sig = self.mem[(addr as usize)];
             ((most_sig as u16) <<8) + (least_sig as u16)
         }
-    }
+    }*/
     pub fn write_u8(&mut self, addr: u16, obj: u8){
         self.mem[(addr as usize)] = obj;
     }
